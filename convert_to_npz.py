@@ -15,11 +15,8 @@ def main():
 	files = sorted(glob.glob(args.file_pattern))
 
 	scales = ['write_number', 'sim_time']
-	# variables = ['p', 'b', 'u', 'w', 'bz', 'uz', 'wz']
-	variables = ['buoyancy', 'vorticity']
-	# variables = ['buoyancy']
+	variables = ['buoyancy', 'pressure', 'velocity', 'vorticity']
 
-	# var_dict = dict(zip(variables + scales, [[]] * (len(variables) + 2)))
 	var_dict = {}
 	
 	for key in (variables + scales):
