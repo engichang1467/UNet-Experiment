@@ -52,14 +52,11 @@ class RB2DataLoader(Dataset):
         self.return_hres = return_hres
         self.lres_interp = lres_interp
 
-        # warn about median filter
-        # concatenating pressure, temperature, x-velocity, and z-velocity as a 4 channel array: pbuw
-        # shape: (4, 200, 512, 128)
+        # concatenating buoyancy, pressure, x-velocity (horizontal velocity), z-velocity (vertical velocity), and vorticity as a 5 channel array: 
         npdata = np.load(os.path.join(self.data_dir, self.data_filename))
-        horizontal_velocity = npdata['velocity'][:, 0, :, :]
-        vertical_velocity = npdata['velocity'][:, 1, :, :]
-        
-        self.data = np.stack([npdata['buoyancy'], npdata['pressure'], horizontal_velocity, vertical_velocity, npdata['vorticity']], axis=0)
+
+        self.data = np.stack([npdata['buoyancy'], npdata['pressure'], npdata['horizontal_velocity'], npdata['vertical_velocity'], npdata['vorticity']], axis=0)
+
         self.data = self.data.astype(np.float32)
         self.data = self.data.transpose(0, 1, 3, 2)  # [c, t, z, x] -> [channel, time, space_coord_z, space_coord_x]
         nc_data, nt_data, nz_data, nx_data = self.data.shape
