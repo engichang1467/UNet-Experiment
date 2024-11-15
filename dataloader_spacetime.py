@@ -15,7 +15,7 @@ class RB2DataLoader(Dataset):
     Loads a 2d space + time cubic cutout from the whole simulation.
     """
     def __init__(self, data_dir="./", data_filename="./data/rb2d_ra1e6_s1.npz",
-                 nx=128, nz=128, nt=16, n_samp_pts_per_crop=1024,
+                 nx=128, nz=64, nt=16, n_samp_pts_per_crop=1024,
                  downsamp_xz=2, downsamp_t=4, normalize_output=False, normalize_hres=False,
                  return_hres=False, lres_filter='none', lres_interp='linear'):
         """
@@ -43,30 +43,22 @@ class RB2DataLoader(Dataset):
         self.nx_hres = nx
         self.nz_hres = nz
         self.nt_hres = nt
-        self.nx_lres = int(nx/downsamp_xz)
-        self.nz_lres = int(nz/downsamp_xz)
-        self.nt_lres = int(nt/downsamp_t)
+        self.nx_lres = nx
+        self.nz_lres = nz
+        self.nt_lres = nt
         self.n_samp_pts_per_crop = n_samp_pts_per_crop
-        self.downsamp_xz = downsamp_xz
-        self.downsamp_t = downsamp_t
         self.normalize_output = normalize_output
         self.normalize_hres = normalize_hres
         self.return_hres = return_hres
-        self.lres_filter = lres_filter
         self.lres_interp = lres_interp
 
-        # warn about median filter
-        if lres_filter == 'median':
-            warnings.warn("the median filter is very slow...", RuntimeWarning)
 
-        # concatenating pressure, temperature, x-velocity, and z-velocity as a 4 channel array: pbuw
-        # shape: (4, 200, 512, 128)
+        # concatenating buoyancy, pressure, x-velocity (horizontal velocity), z-velocity (vertical velocity), and vorticity as a 5 channel array: 
         npdata = np.load(os.path.join(self.data_dir, self.data_filename))
-        # self.data = np.stack([npdata['p'], npdata['b'], npdata['u'], npdata['w']], axis=0)
-        self.data = np.stack([npdata['vorticity'], npdata['buoyancy']], axis=0)
-        # self.data = np.stack([npdata['buoyancy']], axis=0)
+
+        self.data = np.stack([npdata['buoyancy'], npdata['pressure'], npdata['horizontal_velocity'], npdata['vertical_velocity'], npdata['vorticity']], axis=0)
         self.data = self.data.astype(np.float32)
-        self.data = self.data.transpose(0, 1, 3, 2)  # [c, t, z, x]
+        self.data = self.data.transpose(0, 1, 3, 2)  # [c, t, z, x] -> [channel, time, space_coord_z, space_coord_x]
         nc_data, nt_data, nz_data, nx_data = self.data.shape
 
         # assert nx, nz, nt are viable
@@ -74,8 +66,6 @@ class RB2DataLoader(Dataset):
             raise ValueError('Resolution in each spatial temporal dimension x ({}), z({}), t({})'
                              'must not exceed dataset limits x ({}) z ({}) t ({})'.format(
                                  nx, nz, nt, nx_data, nz_data, nt_data))
-        if (nt % downsamp_t != 0) or (nx % downsamp_xz != 0) or (nz % downsamp_xz != 0):
-            raise ValueError('nx, nz and nt must be divisible by downsamp factor.')
 
         self.nx_start_range = np.arange(0, nx_data-nx+1)
         self.nz_start_range = np.arange(0, nz_data-nz+1)
@@ -95,27 +85,6 @@ class RB2DataLoader(Dataset):
     def __len__(self):
         return self.rand_start_id.shape[0]
 
-    def filter(self, signal):
-        """Filter a given signal with a choice of filter type (self.lres_filter).
-        """
-        signal = signal.copy()
-        filter_size = [1, self.downsamp_t*2-1, self.downsamp_xz*2-1, self.downsamp_xz*2-1]
-
-        if self.lres_filter == 'none' or (not self.lres_filter):
-            output = signal
-        elif self.lres_filter == 'gaussian':
-            sigma = [0, int(self.downsamp_t/2), int(self.downsamp_xz/2), int(self.downsamp_xz/2)]
-            output = ndimage.gaussian_filter(signal, sigma=sigma)
-        elif self.lres_filter == 'uniform':
-            output = ndimage.uniform_filter(signal, size=filter_size)
-        elif self.lres_filter == 'median':
-            output = ndimage.median_filter(signal, size=filter_size)
-        elif self.lres_filter == 'maximum':
-            output = ndimage.maximum_filter(signal, size=filter_size)
-        else:
-            raise NotImplementedError(
-                "lres_filter must be one of none/gaussian/uniform/median/maximum")
-        return output
 
     def __getitem__(self, idx):
         """Get the random cutout data cube corresponding to idx.
@@ -140,7 +109,7 @@ class RB2DataLoader(Dataset):
 
         # create low res grid from hi res space time crop
         # apply filter
-        space_time_crop_hres_fil = self.filter(space_time_crop_hres)
+        space_time_crop_hres_fil = space_time_crop_hres
 
         interp = RegularGridInterpolator(
             (np.arange(self.nt_hres), np.arange(self.nz_hres), np.arange(self.nx_hres)),
