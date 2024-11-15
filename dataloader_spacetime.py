@@ -52,11 +52,11 @@ class RB2DataLoader(Dataset):
         self.return_hres = return_hres
         self.lres_interp = lres_interp
 
-
         # concatenating buoyancy, pressure, x-velocity (horizontal velocity), z-velocity (vertical velocity), and vorticity as a 5 channel array: 
         npdata = np.load(os.path.join(self.data_dir, self.data_filename))
 
         self.data = np.stack([npdata['buoyancy'], npdata['pressure'], npdata['horizontal_velocity'], npdata['vertical_velocity'], npdata['vorticity']], axis=0)
+
         self.data = self.data.astype(np.float32)
         self.data = self.data.transpose(0, 1, 3, 2)  # [c, t, z, x] -> [channel, time, space_coord_z, space_coord_x]
         nc_data, nt_data, nz_data, nx_data = self.data.shape
@@ -85,7 +85,6 @@ class RB2DataLoader(Dataset):
     def __len__(self):
         return self.rand_start_id.shape[0]
 
-
     def __getitem__(self, idx):
         """Get the random cutout data cube corresponding to idx.
 
@@ -108,8 +107,7 @@ class RB2DataLoader(Dataset):
                                          x_id:x_id+self.nx_hres]  # [c, t, z, x]
 
         # create low res grid from hi res space time crop
-        # apply filter
-        space_time_crop_hres_fil = space_time_crop_hres
+        space_time_crop_hres_fil = space_time_crop_hres # Not filtering for now
 
         interp = RegularGridInterpolator(
             (np.arange(self.nt_hres), np.arange(self.nz_hres), np.arange(self.nx_hres)),
@@ -227,31 +225,3 @@ class RB2DataLoader(Dataset):
         std_bc = self.channel_std[(None,)*(g_dim-1)]  # unsqueeze from the front
         return self._denormalize_array(points, mean_bc, std_bc)
 
-
-# if __name__ == '__main__':
-#     ### example for using the data loader
-#     data_loader = RB2DataLoader(nt=16, n_samp_pts_per_crop=10000, downsamp_t=4, downsamp_xz=8, return_hres=True)
-#     # lres_crop, point_coord, point_value = data_loader[61234]
-#     # import matplotlib.pyplot as plt
-#     # plt.scatter(point_coord[:, 1], point_coord[:, 2], c=point_value[:, 0])
-#     # plt.colorbar()
-#     # plt.show()
-#     # plt.imshow(lres_crop[0, :, :, 0].T, origin='lower'); plt.show()
-#     # plt.imshow(lres_crop[1, :, :, 0].T, origin='lower'); plt.show()
-
-#     data_batches = torch.utils.data.DataLoader(data_loader, batch_size=16, shuffle=True, num_workers=1)
-
-#     for batch_idx, (hires_input_batch, lowres_input_batch, point_coords, point_values) in enumerate(data_batches):
-#         print("Reading batch #{}:\t with lowres inputs of size {}, sample coord of size {}, sampe val of size {}"
-#               .format(batch_idx+1, list(lowres_input_batch.shape),  list(point_coords.shape), list(point_values.shape)))
-#         if batch_idx > 16:
-#             break
-#     import matplotlib.pyplot as plt
-#     fig = plt.figure()
-#     ax1 = fig.add_subplot(121)
-#     ax2 = fig.add_subplot(122)
-#     ax1.imshow(hires_input_batch[0, 0, 2])
-#     print(f"lowres_input_batch[0, 0, 8].shape: {lowres_input_batch.shape}")
-#     # ax2.imshow(lowres_input_batch[0, 0, 8])
-#     ax2.imshow(lowres_input_batch[0, 0, 3])
-#     plt.show()
