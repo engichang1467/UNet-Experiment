@@ -4,6 +4,7 @@
 *.ipynb
 data/
 logs/
+log/
 .DS_Store
 .lightning_studio
 
