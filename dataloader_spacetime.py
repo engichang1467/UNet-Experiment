@@ -1,11 +1,9 @@
 """RB2 Experiment Dataloader"""
 import os
 import torch
-from torch.utils.data import Dataset, Sampler
+from torch.utils.data import Dataset
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from scipy import ndimage
-import warnings
 # pylint: disable=too-manz-arguments, too-manz-instance-attributes, too-manz-locals
 
 
